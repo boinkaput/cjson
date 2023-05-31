@@ -31,6 +31,22 @@ namespace cjson {
         _ARRAY
     };
 
+    template <typename T, typename L, typename... Ls>
+    struct find_json_type {
+        using type = std::conditional_t<std::is_convertible_v<T, L>, L, typename find_json_type<T, Ls...>::type>;
+    };
+
+    template <typename T, typename L>
+    struct find_json_type<T, L> {
+        using type = std::conditional_t<std::is_convertible_v<T, L>, L, void>;
+    };
+
+    template <typename T, typename... Ls>
+    using find_json_type_t = typename find_json_type<T, Ls...>::type;
+
+    template <typename T, typename... JSON_TYPES>
+    concept is_json_type = not std::is_void_v<find_json_type_t<std::remove_cvref_t<T>, JSON_TYPES...>>;
+
     template <typename Types, template<typename> class Alloc = std::allocator>
     class basic_json {
     public:
@@ -57,22 +73,20 @@ namespace cjson {
         constexpr basic_json() noexcept = default;
 
         template <typename T>
-        requires (
-            std::is_same_v<std::remove_cvref_t<T>, null> or std::is_same_v<std::remove_cvref_t<T>, number> or
-            std::is_same_v<std::remove_cvref_t<T>, boolean> or std::is_same_v<std::remove_cvref_t<T>, string> or
-            std::is_same_v<std::remove_cvref_t<T>, object> or std::is_same_v<std::remove_cvref_t<T>, array>
-        )
-        explicit basic_json(T&& t) noexcept
-            : m_json_value{t} {
-            if constexpr (std::is_same_v<std::remove_cvref_t<T>, null>) {
+        requires is_json_type<T, null, number, boolean, string, object, array>
+        explicit basic_json(T&& t) noexcept {
+            using json_type = find_json_type_t<std::remove_cvref_t<T>, null, number, boolean, string, object, array>;
+
+            m_json_value = json_value{static_cast<std::add_rvalue_reference_t<json_type>>(t)};
+            if constexpr (std::is_same_v<json_type, null>) {
                 m_value_t = value_t::_NULL;
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<T>, number>) {
+            } else if constexpr (std::is_same_v<json_type, number>) {
                 m_value_t = value_t::_NUMBER;
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<T>, boolean>) {
+            } else if constexpr (std::is_same_v<json_type, boolean>) {
                 m_value_t = value_t::_BOOLEAN;
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<T>, string>) {
+            } else if constexpr (std::is_same_v<json_type, string>) {
                 m_value_t = value_t::_STRING;
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<T>, object>) {
+            } else if constexpr (std::is_same_v<json_type, object>) {
                 m_value_t = value_t::_OBJECT;
             } else {
                 m_value_t = value_t::_ARRAY;
