@@ -76,7 +76,6 @@ namespace cjson {
         requires is_json_type<T, null, number, boolean, string, object, array>
         explicit basic_json(T&& t) noexcept {
             using json_type = find_json_type_t<std::remove_cvref_t<T>, null, number, boolean, string, object, array>;
-
             m_json_value = json_value{static_cast<std::add_rvalue_reference_t<json_type>>(t)};
             if constexpr (std::is_same_v<json_type, null>) {
                 m_value_t = value_t::_NULL;
@@ -327,7 +326,9 @@ namespace cjson {
             array* m_array;
 
             json_value() noexcept
-                : m_null{} {}
+                : json_value{null{}} {}
+            json_value(null n) noexcept
+                : m_null{n} {}
             json_value(number n) noexcept
                 : m_number{n} {}
             json_value(boolean b) noexcept
