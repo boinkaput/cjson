@@ -1,5 +1,5 @@
-#ifndef JSON_HPP
-#define JSON_HPP
+#ifndef CJSON_HPP
+#define CJSON_HPP
 
 #include <cstddef>
 #include <initializer_list>
@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "cjson_iterator.hpp"
 
 namespace cjson {
     struct json_types {
@@ -65,6 +67,11 @@ namespace cjson {
         using difference_type = std::ptrdiff_t;
         using size_type = std::size_t;
         using allocator_type = Alloc<basic_json>;
+
+        using iterator = iter<basic_json>;
+        using const_iterator = iter<const basic_json>;
+        using reverse_iterator = std::reverse_iterator<iterator>;
+        using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
         constexpr auto get_allocator() -> allocator_type {
             return allocator_type{};
@@ -169,6 +176,96 @@ namespace cjson {
                     destroy_heap_object<Alloc<array>, array>(m_json_value.m_array);
                     break;
             }
+        }
+
+        auto begin() -> iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return iterator{m_json_value.m_object->begin()};
+                case value_t::_ARRAY:
+                    return iterator{m_json_value.m_array->begin()};
+                default:
+                    return iterator{this};
+            }
+        }
+
+        auto end() -> iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return iterator{m_json_value.m_object->end()};
+                case value_t::_ARRAY:
+                    return iterator{m_json_value.m_array->end()};
+                default:
+                    return iterator{this + 1};
+            }
+        }
+
+        auto begin() const -> const_iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return const_iterator{m_json_value.m_object->begin()};
+                case value_t::_ARRAY:
+                    return const_iterator{m_json_value.m_array->begin()};
+                default:
+                    return const_iterator{this};
+            }
+        }
+
+        auto end() const -> const_iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return const_iterator{m_json_value.m_object->end()};
+                case value_t::_ARRAY:
+                    return const_iterator{m_json_value.m_array->end()};
+                default:
+                    return const_iterator{this + 1};
+            }
+        }
+
+        auto cbegin() const -> const_iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return const_iterator{m_json_value.m_object->begin()};
+                case value_t::_ARRAY:
+                    return const_iterator{m_json_value.m_array->begin()};
+                default:
+                    return const_iterator{this};
+            }
+        }
+
+        auto cend() const -> const_iterator {
+            switch (m_value_t) {
+                case value_t::_OBJECT:
+                    return const_iterator{m_json_value.m_object->end()};
+                case value_t::_ARRAY:
+                    return const_iterator{m_json_value.m_array->end()};
+                default:
+                    return const_iterator{this + 1};
+            }
+        }
+
+        auto rbegin() -> reverse_iterator {
+            return reverse_iterator{end()};
+        }
+
+        auto rend() -> reverse_iterator {
+            return reverse_iterator{begin()};
+        }
+
+        auto rbegin() const -> const_reverse_iterator {
+            return const_reverse_iterator{end()};
+        }
+
+        auto rend() const -> const_reverse_iterator {
+            return const_reverse_iterator{begin()};
+        }
+
+        auto crbegin() const -> const_reverse_iterator {
+            return const_reverse_iterator{end()};
+        }
+
+        auto crend() const -> const_reverse_iterator {
+            return const_reverse_iterator{begin()};
         }
 
         auto swap(basic_json& other) noexcept -> void {
@@ -295,11 +392,60 @@ namespace cjson {
             }
         }
 
+        friend auto operator<<(std::ostream& os, const basic_json& js) noexcept -> std::ostream& {
+            os << js.do_dump(0, 1);
+            return os;
+        }
+
         friend auto swap(basic_json& js1, basic_json& js2) noexcept -> void {
             js1.swap(js2);
         }
 
     private:
+        auto do_dump(const std::size_t& indent, const std::size_t& level) const noexcept -> std::string {
+            const auto newline_str = std::string{(indent != 0) ? "\n" : ""};
+            const auto indent_level = std::string(level * indent, ' ');
+            auto str = std::string{};
+            auto i = 0u;
+            switch (m_value_t) {
+                case value_t::_NULL:
+                    str += "null";
+                    break;
+                case value_t::_NUMBER:
+                    str += std::to_string(m_json_value.m_number);
+                    break;
+                case value_t::_BOOLEAN:
+                    str += m_json_value.m_boolean ? "true" : "false";
+                    break;
+                case value_t::_STRING:
+                    str += "\"" + *m_json_value.m_string + "\"";
+                    break;
+                case value_t::_OBJECT:
+                    str += "{" + newline_str;
+                    for (const auto& [key, val] : *m_json_value.m_object) {
+                        str += indent_level + "\"" + key + "\": " + val.do_dump(indent, level + 1);
+                        if (++i < m_json_value.m_object->size()) {
+                            str += ", ";
+                        }
+                        str += newline_str;
+                    }
+                    str += std::string((level - 1) * indent, ' ') + "}";
+                    break;
+                case value_t::_ARRAY:
+                    str += "[" + newline_str;
+                    for (const auto& val : *m_json_value.m_array) {
+                        str += indent_level + val.do_dump(indent, level + 1);
+                        if (++i < m_json_value.m_array->size()) {
+                            str += ", ";
+                        }
+                        str += newline_str;
+                    }
+                    str += std::string((level - 1) * indent, ' ') + "]";
+                    break;
+            }
+            return str;
+        }
+
         template<typename A, typename T, typename... Args>
         static auto construct_heap_object(Args&& ...args) noexcept -> T* {
             using alloc_traits = std::allocator_traits<A>;
@@ -351,5 +497,6 @@ namespace cjson {
         value_t m_value_t;
     };
 }
+
 
 #endif
