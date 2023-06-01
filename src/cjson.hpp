@@ -33,14 +33,36 @@ namespace cjson {
         _ARRAY
     };
 
-    template <typename T, typename L, typename... Ls>
-    struct find_json_type {
-        using type = std::conditional_t<std::is_convertible_v<T, L>, L, typename find_json_type<T, Ls...>::type>;
+    template <typename T, typename... Ts>
+    struct find_same_type;
+
+    template <typename U, typename T, typename... Ts>
+    struct find_same_type<U, T, Ts...> {
+        using type = std::conditional_t<std::is_same_v<U, T>, T, typename find_same_type<U, Ts...>::type>;
     };
 
-    template <typename T, typename L>
-    struct find_json_type<T, L> {
-        using type = std::conditional_t<std::is_convertible_v<T, L>, L, void>;
+    template <typename T>
+    struct find_same_type<T> {
+        using type = void;
+    };
+
+    template <typename T, typename... Ts>
+    struct find_similar_type;
+
+    template <typename U, typename T, typename... Ts>
+    struct find_similar_type<U, T, Ts...> {
+        using type = std::conditional_t<std::is_convertible_v<U, T>, T, typename find_similar_type<U, Ts...>::type>;
+    };
+
+    template <typename T>
+    struct find_similar_type<T> {
+        using type = void;
+    };
+
+    template <typename T, typename... Ts>
+    struct find_json_type {
+        using same_type = typename find_same_type<T, Ts...>::type;
+        using type = std::conditional_t<not std::is_void_v<same_type>, same_type, typename find_similar_type<T, Ts...>::type>;
     };
 
     template <typename T, typename... Ls>
@@ -82,7 +104,7 @@ namespace cjson {
         template <typename T>
         requires is_json_type<T, null, number, boolean, string, object, array>
         explicit basic_json(T&& t) noexcept {
-            using json_type = find_json_type_t<std::remove_cvref_t<T>, null, number, boolean, string, object, array>;
+            using json_type = find_json_type_t<std::remove_cvref_t<T>, null, string, object, array, number, boolean>;
             m_json_value = json_value{static_cast<std::add_rvalue_reference_t<json_type>>(t)};
             if constexpr (std::is_same_v<json_type, null>) {
                 m_value_t = value_t::_NULL;
