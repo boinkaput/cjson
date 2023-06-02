@@ -213,10 +213,6 @@ namespace cjson {
 
         ~basic_json() noexcept {
             switch (m_value_t) {
-                case value_t::_NULL:
-                case value_t::_NUMBER:
-                case value_t::_BOOLEAN:
-                    break;
                 case value_t::_STRING:
                     destroy_heap_object<Alloc<string>, string>(m_json_value.m_string);
                     break;
@@ -226,7 +222,11 @@ namespace cjson {
                 case value_t::_ARRAY:
                     destroy_heap_object<Alloc<array>, array>(m_json_value.m_array);
                     break;
+                default:
+                    break;
             }
+            m_json_value = {};
+            m_value_t = {};
         }
 
         auto begin() -> iterator {
@@ -362,14 +362,67 @@ namespace cjson {
             return size() == 0;
         }
 
+        template <typename... Args>
+        auto emplace(const_iterator position, Args&& ...args) -> iterator {
+            return iterator{m_json_value.m_array->emplace(position.m_iter_value.m_array_iter, std::forward<Args>(args)...)};
+        }
+
+        auto insert(const_iterator position, const typename array::value_type& value) -> iterator {
+            return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, value)};
+        }
+
+        auto insert(const_iterator position, typename array::value_type&& value) -> iterator {
+            return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, value)};
+        }
+
+        auto insert(const_iterator position, size_type n, const typename array::value_type& value) -> iterator {
+            return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, n, value)};
+        }
+
+        template <std::input_iterator InputIterator>
+        requires std::is_same_v<std::iter_value_t<InputIterator>, typename array::value_type>
+        auto insert(const_iterator position, InputIterator first, InputIterator last) -> iterator {
+            return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, first, last)};
+        }
+
+        auto insert(const_iterator position, std::initializer_list<typename array::value_type> il) -> iterator {
+            return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, il)};
+        }
+
+        auto erase(const_iterator position) -> iterator {
+            switch (position.m_iter_value_t) {
+                case iter_value_t::_OBJECT:
+                    return iterator{m_json_value.m_object->erase(position.m_iter_value.m_object_iter)};
+                case iter_value_t::_ARRAY:
+                    return iterator{m_json_value.m_array->erase(position.m_iter_value.m_array_iter)};
+                default:
+                    clear();
+                    return begin();
+            }
+        }
+
+        auto erase(const_iterator first, const_iterator last) -> iterator {
+            switch (first.m_iter_value_t) {
+                case iter_value_t::_OBJECT:
+                    return iterator{m_json_value.m_object->erase(first.m_iter_value.m_object_iter, last.m_iter_value.m_object_iter)};
+                case iter_value_t::_ARRAY:
+                    return iterator{m_json_value.m_array->erase(first.m_iter_value.m_array_iter, last.m_iter_value.m_array_iter)};
+                default:
+                    clear();
+                    return begin();
+            }
+        }
+
         auto clear() noexcept -> void {
             switch (m_value_t) {
                 case value_t::_NULL:
                     break;
                 case value_t::_STRING:
                     m_json_value.m_string->clear();
+                    break;
                 case value_t::_OBJECT:
                     m_json_value.m_object->clear();
+                    break;
                 case value_t::_ARRAY:
                     m_json_value.m_array->clear();
                     break;
@@ -377,6 +430,7 @@ namespace cjson {
                 case value_t::_BOOLEAN:
                 default:
                     m_json_value = {};
+                    m_value_t = {};
                     break;
             }
         }

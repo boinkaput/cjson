@@ -111,12 +111,12 @@ namespace cjson {
         }
 
     private:
-        iter(const pointer json_ptr) noexcept
+        iter(pointer json_ptr) noexcept
             : m_iter_value{json_ptr}, m_iter_value_t{iter_value_t::_SCALAR} {}
         iter(const typename value_type::object::iterator& obj_iter) noexcept
             : m_iter_value{obj_iter}, m_iter_value_t{iter_value_t::_OBJECT} {}
         iter(const typename value_type::array::iterator& array_iter) noexcept
-                : m_iter_value{array_iter}, m_iter_value_t{iter_value_t::_ARRAY} {}
+            : m_iter_value{array_iter}, m_iter_value_t{iter_value_t::_ARRAY} {}
 
         union iter_value {
             pointer m_scalar_value;
@@ -124,7 +124,7 @@ namespace cjson {
             typename value_type::array::iterator m_array_iter;
 
             iter_value() noexcept = default;
-            iter_value(const pointer json_ptr) noexcept
+            iter_value(pointer json_ptr) noexcept
                 : m_scalar_value{json_ptr} {}
             iter_value(const typename value_type::object::iterator& obj_iter) noexcept
                 : m_object_iter{obj_iter} {}
