@@ -102,25 +102,38 @@ namespace cjson {
 
         constexpr basic_json() noexcept = default;
 
-        template <typename T>
-        requires is_json_type<T, null, number, boolean, string, object, array>
-        explicit basic_json(T&& t) noexcept {
-            using json_type = find_json_type_t<std::remove_cvref_t<T>, null, string, object, array, number, boolean>;
-            m_json_value = json_value{static_cast<std::add_rvalue_reference_t<json_type>>(t)};
-            if constexpr (std::is_same_v<json_type, null>) {
-                m_value_t = value_t::_NULL;
-            } else if constexpr (std::is_same_v<json_type, number>) {
-                m_value_t = value_t::_NUMBER;
-            } else if constexpr (std::is_same_v<json_type, boolean>) {
-                m_value_t = value_t::_BOOLEAN;
-            } else if constexpr (std::is_same_v<json_type, string>) {
-                m_value_t = value_t::_STRING;
-            } else if constexpr (std::is_same_v<json_type, object>) {
-                m_value_t = value_t::_OBJECT;
-            } else {
-                m_value_t = value_t::_ARRAY;
-            }
-        }
+        explicit basic_json(std::nullptr_t n)
+            : m_json_value{n}, m_value_t{value_t::_NULL} {}
+
+        template <typename NUMBER>
+        requires std::convertible_to<NUMBER, number>
+        explicit basic_json(NUMBER n)
+            : m_json_value{static_cast<number>(n)}, m_value_t{value_t::_NUMBER} {}
+
+        explicit basic_json(boolean&& b)
+            : m_json_value{b}, m_value_t{value_t::_BOOLEAN} {}
+
+        template <typename STRING>
+        requires std::convertible_to<STRING, string>
+        explicit basic_json(const STRING& s)
+            : m_json_value{string{s}}, m_value_t{value_t::_STRING} {}
+
+        template <typename STRING>
+        requires std::convertible_to<STRING, string>
+        explicit basic_json(STRING&& s)
+            : m_json_value{string{s}}, m_value_t{value_t::_STRING} {}
+
+        explicit basic_json(const object& o)
+            : m_json_value{o}, m_value_t{value_t::_OBJECT} {}
+
+        explicit basic_json(object&& o)
+            : m_json_value{o}, m_value_t{value_t::_OBJECT} {}
+
+        explicit basic_json(const array& a)
+            : m_json_value{a}, m_value_t{value_t::_ARRAY} {}
+
+        explicit basic_json(array&& a)
+            : m_json_value{a}, m_value_t{value_t::_ARRAY} {}
 
         basic_json(size_type count, const value_type& val)
             : m_value_t{value_t::_ARRAY} {
