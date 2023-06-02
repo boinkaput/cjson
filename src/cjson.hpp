@@ -1,8 +1,10 @@
 #ifndef CJSON_HPP
 #define CJSON_HPP
 
+#include <bits/iterator_concepts.h>
 #include <cstddef>
 #include <initializer_list>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <type_traits>
@@ -68,6 +70,9 @@ namespace cjson {
     template <typename T, typename... Ls>
     using find_json_type_t = typename find_json_type<T, Ls...>::type;
 
+    template <typename Iterator>
+    using iterator_value_t = std::remove_const_t<typename std::iterator_traits<Iterator>::value_type>;
+
     template <typename T, typename... JSON_TYPES>
     concept is_json_type = not std::is_void_v<find_json_type_t<std::remove_cvref_t<T>, JSON_TYPES...>>;
 
@@ -89,7 +94,6 @@ namespace cjson {
         using difference_type = std::ptrdiff_t;
         using size_type = std::size_t;
         using allocator_type = Alloc<basic_json>;
-
         using iterator = iter<basic_json>;
         using const_iterator = iter<const basic_json>;
         using reverse_iterator = std::reverse_iterator<iterator>;
@@ -121,9 +125,22 @@ namespace cjson {
             }
         }
 
-        basic_json(size_type count, const basic_json& val)
+        basic_json(size_type count, const value_type& val)
             : m_value_t{value_t::_ARRAY} {
             m_json_value.m_array = construct_heap_object<Alloc<array>, array>(count, val);
+        }
+
+        template <std::input_iterator InputIterator>
+        requires std::disjunction_v<std::is_same<iterator_value_t<InputIterator>, typename array::value_type>,
+            std::is_same<iterator_value_t<InputIterator>, typename object::value_type>>
+        basic_json(InputIterator first, InputIterator last) {
+            if constexpr (std::is_same_v<iterator_value_t<InputIterator>, typename array::value_type>) {
+                m_value_t = value_t::_ARRAY;
+                m_json_value.m_array = construct_heap_object<Alloc<array>, array>(first, last);
+            } else {
+                m_value_t = value_t::_OBJECT;
+                m_json_value.m_object = construct_heap_object<Alloc<object>, object>(first, last);
+            }
         }
 
         basic_json(std::initializer_list<value_type> il)
