@@ -297,8 +297,6 @@ namespace cjson {
                     return m_json_value.m_object->size();
                 case value_t::_ARRAY:
                     return m_json_value.m_array->size();
-                case value_t::_NUMBER:
-                case value_t::_BOOLEAN:
                 default:
                     return 1;
             }
@@ -314,8 +312,6 @@ namespace cjson {
                     return m_json_value.m_object->max_size();
                 case value_t::_ARRAY:
                     return m_json_value.m_array->max_size();
-                case value_t::_NUMBER:
-                case value_t::_BOOLEAN:
                 default:
                     return 1;
             }
