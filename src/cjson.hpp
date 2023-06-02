@@ -106,20 +106,20 @@ namespace cjson {
             : m_json_value{n}, m_value_t{value_t::_NULL} {}
 
         template <typename NUMBER>
-        requires std::convertible_to<NUMBER, number>
+        requires std::convertible_to<std::remove_cvref_t<NUMBER>, number>
         explicit basic_json(NUMBER n)
-            : m_json_value{static_cast<number>(n)}, m_value_t{value_t::_NUMBER} {}
+            : m_json_value{number(n)}, m_value_t{value_t::_NUMBER} {}
 
         explicit basic_json(boolean&& b)
             : m_json_value{b}, m_value_t{value_t::_BOOLEAN} {}
 
         template <typename STRING>
-        requires std::convertible_to<STRING, string>
+        requires std::convertible_to<std::remove_cvref_t<STRING>, string>
         explicit basic_json(const STRING& s)
             : m_json_value{string{s}}, m_value_t{value_t::_STRING} {}
 
         template <typename STRING>
-        requires std::convertible_to<STRING, string>
+        requires std::convertible_to<std::remove_cvref_t<STRING>, string>
         explicit basic_json(STRING&& s)
             : m_json_value{string{s}}, m_value_t{value_t::_STRING} {}
 
