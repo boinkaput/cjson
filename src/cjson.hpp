@@ -70,9 +70,6 @@ namespace cjson {
     template <typename T, typename... Ls>
     using find_json_type_t = typename find_json_type<T, Ls...>::type;
 
-    template <typename Iterator>
-    using iterator_value_t = std::remove_const_t<typename std::iterator_traits<Iterator>::value_type>;
-
     template <typename T, typename... JSON_TYPES>
     concept is_json_type = not std::is_void_v<find_json_type_t<std::remove_cvref_t<T>, JSON_TYPES...>>;
 
@@ -131,22 +128,24 @@ namespace cjson {
         }
 
         template <std::input_iterator InputIterator>
-        requires std::disjunction_v<std::is_same<iterator_value_t<InputIterator>, typename array::value_type>,
-            std::is_same<iterator_value_t<InputIterator>, typename object::value_type>>
-        basic_json(InputIterator first, InputIterator last) {
-            if constexpr (std::is_same_v<iterator_value_t<InputIterator>, typename array::value_type>) {
-                m_value_t = value_t::_ARRAY;
-                m_json_value.m_array = construct_heap_object<Alloc<array>, array>(first, last);
-            } else {
-                m_value_t = value_t::_OBJECT;
-                m_json_value.m_object = construct_heap_object<Alloc<object>, object>(first, last);
-            }
+        requires std::is_same_v<std::iter_value_t<InputIterator>, typename array::value_type>
+        basic_json(InputIterator first, InputIterator last)
+            : m_value_t{value_t::_ARRAY} {
+            m_json_value.m_array = construct_heap_object<Alloc<array>, array>(first, last);
         }
 
-        basic_json(std::initializer_list<value_type> il)
-            : m_value_t{value_t::_ARRAY} {
-            m_json_value.m_array = construct_heap_object<Alloc<array>, array>(il.begin(), il.end());
+        template <std::input_iterator InputIterator>
+        requires std::is_same_v<std::iter_value_t<InputIterator>, typename object::value_type>
+        basic_json(InputIterator first, InputIterator last)
+            : m_value_t{value_t::_OBJECT} {
+            m_json_value.m_object = construct_heap_object<Alloc<object>, object>(first, last);
         }
+
+        basic_json(std::initializer_list<typename array::value_type> il)
+            : basic_json(il.begin(), il.end()) {}
+
+        basic_json(std::initializer_list<typename object::value_type> il)
+            : basic_json(il.begin(), il.end()) {}
 
         basic_json(const basic_json& other) noexcept
             : m_value_t{other.m_value_t} {
