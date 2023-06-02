@@ -2,6 +2,7 @@
 #define CJSON_HPP
 
 #include <bits/iterator_concepts.h>
+#include <concepts>
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
@@ -34,44 +35,6 @@ namespace cjson {
         _OBJECT,
         _ARRAY
     };
-
-    template <typename T, typename... Ts>
-    struct find_same_type;
-
-    template <typename U, typename T, typename... Ts>
-    struct find_same_type<U, T, Ts...> {
-        using type = std::conditional_t<std::is_same_v<U, T>, T, typename find_same_type<U, Ts...>::type>;
-    };
-
-    template <typename T>
-    struct find_same_type<T> {
-        using type = void;
-    };
-
-    template <typename T, typename... Ts>
-    struct find_similar_type;
-
-    template <typename U, typename T, typename... Ts>
-    struct find_similar_type<U, T, Ts...> {
-        using type = std::conditional_t<std::is_convertible_v<U, T>, T, typename find_similar_type<U, Ts...>::type>;
-    };
-
-    template <typename T>
-    struct find_similar_type<T> {
-        using type = void;
-    };
-
-    template <typename T, typename... Ts>
-    struct find_json_type {
-        using same_type = typename find_same_type<T, Ts...>::type;
-        using type = std::conditional_t<not std::is_void_v<same_type>, same_type, typename find_similar_type<T, Ts...>::type>;
-    };
-
-    template <typename T, typename... Ls>
-    using find_json_type_t = typename find_json_type<T, Ls...>::type;
-
-    template <typename T, typename... JSON_TYPES>
-    concept is_json_type = not std::is_void_v<find_json_type_t<std::remove_cvref_t<T>, JSON_TYPES...>>;
 
     template <typename Types, template<typename> class Alloc = std::allocator>
     class basic_json {
@@ -445,36 +408,83 @@ namespace cjson {
             m_json_value.m_array->assign(n, value);
         }
 
+        auto front() -> reference {
+            return *begin();
+        }
+
+        auto front() const -> const_reference {
+            return *cbegin();
+        }
+
+        auto back() -> reference
+            requires (requires (array a) { {a.back()} -> std::same_as<typename array::reference>; }) {
+            return *(--end());
+        }
+
+        auto back() const -> const_reference
+            requires (requires (array a) { {a.back()} -> std::same_as<typename array::const_reference>; }) {
+            return *(--cend());
+        }
+
         template <typename ...Args>
+        requires (requires (array a) { {a.emplace_front()} -> std::same_as<typename array::reference>; })
+        auto emplace_front(Args&& ...args) -> reference {
+            return m_json_value.m_array->emplace_front(std::forward<Args>(args)...);
+        }
+
+        template <typename ...Args>
+        requires (requires (array a) { {a.emplace_back()} -> std::same_as<typename array::reference>; })
         auto emplace_back(Args&& ...args) -> reference {
             return m_json_value.m_array->emplace_back(std::forward<Args>(args)...);
         }
 
-        auto push_back(const value_type& js) -> void {
+        auto push_front(const value_type& js) -> void
+            requires (requires (array a) { {a.push_front(js)} -> std::same_as<void>; }) {
+            m_json_value.m_array->push_front(js);
+        }
+
+        auto push_front(value_type&& js) -> void
+            requires (requires (array a) { {a.push_front(js)} -> std::same_as<void>; }) {
+            m_json_value.m_array->push_front(std::forward<value_type>(js));
+        }
+
+        auto push_back(const value_type& js) -> void
+            requires (requires (array a) { {a.push_back(js)} -> std::same_as<void>; }) {
             m_json_value.m_array->push_back(js);
         }
 
-        auto push_back(value_type&& js) -> void {
+        auto push_back(value_type&& js) -> void
+            requires (requires (array a) { {a.push_back(js)} -> std::same_as<void>; }) {
             m_json_value.m_array->push_back(std::forward<value_type>(js));
         }
 
-        auto pop_back() -> void {
+        auto pop_front() -> void
+            requires (requires (array a) { {a.pop_front()} -> std::same_as<void>; }) {
+            m_json_value.m_array->pop_front();
+        }
+
+        auto pop_back() -> void
+            requires (requires (array a) { {a.pop_back()} -> std::same_as<void>; }) {
             m_json_value.m_array->pop_back();
         }
 
-        auto operator[](size_type n) -> reference {
+        auto operator[](size_type n) -> reference
+            requires (requires (array a) { {a.operator[](n)} -> std::same_as<typename array::reference>; }) {
             return (*m_json_value.m_array)[n];
         }
 
-        auto operator[](size_type n) const -> const_reference {
+        auto operator[](size_type n) const -> const_reference
+            requires (requires (const array a) { {a.operator[](n)} -> std::same_as<typename array::const_reference>; }) {
             return (*m_json_value.m_array)[n];
         }
 
-        auto at(size_type n) -> reference {
+        auto at(size_type n) -> reference
+            requires (requires (array a) { {a.at(n)} -> std::same_as<typename array::reference>; }) {
             return m_json_value.m_array->at(n);
         }
 
-        auto at(size_type n) const -> const_reference {
+        auto at(size_type n) const -> const_reference
+            requires (requires (const array a) { {a.at(n)} -> std::same_as<typename array::const_reference>; }) {
             return m_json_value.m_array->at(n);
         }
 
