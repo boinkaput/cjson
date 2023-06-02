@@ -415,8 +415,6 @@ namespace cjson {
 
         auto clear() noexcept -> void {
             switch (m_value_t) {
-                case value_t::_NULL:
-                    break;
                 case value_t::_STRING:
                     m_json_value.m_string->clear();
                     break;
@@ -426,13 +424,25 @@ namespace cjson {
                 case value_t::_ARRAY:
                     m_json_value.m_array->clear();
                     break;
-                case value_t::_NUMBER:
-                case value_t::_BOOLEAN:
                 default:
                     m_json_value = {};
                     m_value_t = {};
                     break;
             }
+        }
+
+        template <std::input_iterator InputIterator>
+        requires std::is_same_v<std::iter_value_t<InputIterator>, typename array::value_type>
+        auto assign(InputIterator first, InputIterator last) -> void {
+            m_json_value.m_array->assign(first, last);
+        }
+
+        auto assign(std::initializer_list<typename array::value_type> il) -> void {
+            m_json_value.m_array->assign(il);
+        }
+
+        auto assign(size_type n, const typename array::value_type& value) -> void {
+            m_json_value.m_array->assign(n, value);
         }
 
         template <typename ...Args>
