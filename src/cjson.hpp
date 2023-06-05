@@ -443,6 +443,48 @@ namespace cjson {
             m_json_value.m_object->insert(il);
         }
 
+        template <class Json>
+        requires (requires (object o, const object::key_type& key, Json&& value) {
+            {o.insert_or_assign(key, std::forward<Json>(value))}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto insert_or_assign(const object::key_type& key, Json&& value) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->insert_or_assign(key, std::forward<Json>(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <class Json>
+        requires (requires (object o, object::key_type&& key, Json&& value) {
+            {o.insert_or_assign(std::move(key), std::forward<Json>(value))}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto insert_or_assign(object::key_type&& key, Json&& value) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->insert_or_assign(std::move(key), std::forward<Json>(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <class Json>
+        requires (requires (object o, object::const_iterator hint, const object::key_type& key, Json&& value) {
+            {o.insert_or_assign(hint, std::move(key), std::forward<Json>(value))}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto insert_or_assign(const_iterator hint, const object::key_type& key, Json&& value) -> iterator {
+            const auto &[iter, insert_success] =
+                m_json_value.m_object->insert_or_assign(hint, std::move(key), std::forward<Json>(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <class Json>
+        requires (requires (object o, object::const_iterator hint, object::key_type&& key, Json&& value) {
+            {o.insert_or_assign(hint, std::move(key), std::forward<Json>(value))}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto insert_or_assign(const_iterator hint, object::key_type&& key, Json&& value) -> iterator {
+            const auto &[iter, insert_success] =
+                m_json_value.m_object->insert_or_assign(hint, std::move(key), std::forward<Json>(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
         auto erase(const_iterator position) -> iterator {
             switch (position.m_iter_value_t) {
                 case iter_value_t::_OBJECT:
