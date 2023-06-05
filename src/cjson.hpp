@@ -57,10 +57,6 @@ namespace cjson {
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-        constexpr auto get_allocator() -> allocator_type {
-            return allocator_type{};
-        }
-
         constexpr basic_json() noexcept = default;
 
         explicit basic_json(std::nullptr_t n)
@@ -188,6 +184,10 @@ namespace cjson {
             }
             m_json_value = {};
             m_value_t = {};
+        }
+
+        constexpr auto get_allocator() -> allocator_type {
+            return allocator_type{};
         }
 
         auto begin() -> iterator {
@@ -326,9 +326,6 @@ namespace cjson {
         }
 
         template <typename... Args>
-        requires (requires (object o, Args&& ...args) {
-            {o.emplace(std::forward<Args>(args)...)} -> std::same_as<std::pair<typename object::iterator, bool>>;
-        })
         auto emplace(Args&& ...args) -> std::pair<iterator, bool> {
             const auto &[iter, insert_success] = m_json_value.m_object->emplace(std::forward<Args>(args)...);
             return std::make_pair(iterator{iter}, insert_success);
@@ -405,6 +402,45 @@ namespace cjson {
 
         auto insert(const_iterator position, std::initializer_list<typename array::value_type> il) -> iterator {
             return iterator{m_json_value.m_array->insert(position.m_iter_value.m_array_iter, il)};
+        }
+
+        auto insert(const object::value_type& value) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->insert(value);
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        auto insert(object::value_type&& value) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->insert(std::move(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <class Pair>
+        auto insert(Pair&& value) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->insert(std::move(value));
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        auto insert(const_iterator hint, const object::value_type& value) -> iterator {
+            return iterator{m_json_value.m_object->insert(hint.m_iter_value.m_object_iter, value)};
+        }
+
+        auto insert(const_iterator hint, object::value_type&& value) -> iterator {
+            return iterator{m_json_value.m_object->insert(hint.m_iter_value.m_object_iter, std::move(value))};
+        }
+
+        template <class P>
+        auto insert(const_iterator hint, P&& value) -> iterator {
+            return iterator{m_json_value.m_object->insert(hint.m_iter_value.m_object_iter, std::move(value))};
+        }
+
+        template <std::input_iterator InputIterator>
+        requires std::is_same_v<std::iter_value_t<InputIterator>, typename object::value_type>
+        auto insert(InputIterator first, InputIterator last) -> void {
+            m_json_value.m_object->insert(first, last);
+        }
+
+        auto insert(std::initializer_list<typename object::value_type> il) -> void {
+            m_json_value.m_object->insert(il);
         }
 
         auto erase(const_iterator position) -> iterator {
