@@ -511,6 +511,10 @@ namespace cjson {
             }
         }
 
+        auto erase(const object::key_type& key) -> size_type {
+            return m_json_value.m_object->erase(key);
+        }
+
         auto clear() noexcept -> void {
             switch (m_value_t) {
                 case value_t::_STRING:
