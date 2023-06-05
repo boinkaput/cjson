@@ -12,7 +12,7 @@ namespace cjson {
     };
 
     template <typename Basic_Json>
-    class iter {
+    class json_iter {
         friend Basic_Json;
 
     public:
@@ -22,10 +22,10 @@ namespace cjson {
         using pointer = value_type*;
         using difference_type = std::ptrdiff_t;
 
-        iter() noexcept = default;
-        iter(const iter&) noexcept = default;
+        json_iter() noexcept = default;
+        json_iter(const json_iter&) noexcept = default;
 
-        auto operator=(const iter&) noexcept -> iter& = default;
+        auto operator=(const json_iter&) noexcept -> json_iter& = default;
 
         auto operator*() const -> reference {
             switch (m_iter_value_t) {
@@ -51,7 +51,7 @@ namespace cjson {
             }
         }
 
-        auto operator++() -> iter& {
+        auto operator++() -> json_iter& {
             switch (m_iter_value_t) {
                 case iter_value_t::_OBJECT:
                     ++m_iter_value.m_object_iter;
@@ -66,13 +66,13 @@ namespace cjson {
             return *this;
         }
 
-        auto operator++(int) -> iter {
+        auto operator++(int) -> json_iter {
            auto self = *this;
             ++(*this);
             return self;
         }
 
-        auto operator--() -> iter& {
+        auto operator--() -> json_iter& {
             switch (m_iter_value_t) {
                 case iter_value_t::_OBJECT:
                     --m_iter_value.m_object_iter;
@@ -87,13 +87,13 @@ namespace cjson {
             return *this;
         }
 
-        auto operator--(int) -> iter {
+        auto operator--(int) -> json_iter {
            auto self = *this;
             --(*this);
             return self;
         }
 
-        auto operator==(const iter& other) const -> bool {
+        auto operator==(const json_iter& other) const -> bool {
             if (m_iter_value_t != other.m_iter_value_t) {
                 return false;
             }
@@ -111,11 +111,11 @@ namespace cjson {
         }
 
     private:
-        iter(pointer json_ptr) noexcept
+        json_iter(pointer json_ptr) noexcept
             : m_iter_value{json_ptr}, m_iter_value_t{iter_value_t::_SCALAR} {}
-        iter(const typename value_type::object::iterator& obj_iter) noexcept
+        json_iter(const typename value_type::object::iterator& obj_iter) noexcept
             : m_iter_value{obj_iter}, m_iter_value_t{iter_value_t::_OBJECT} {}
-        iter(const typename value_type::array::iterator& array_iter) noexcept
+        json_iter(const typename value_type::array::iterator& array_iter) noexcept
             : m_iter_value{array_iter}, m_iter_value_t{iter_value_t::_ARRAY} {}
 
         union iter_value {
