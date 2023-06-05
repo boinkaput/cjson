@@ -1,13 +1,11 @@
 #ifndef CJSON_HPP
 #define CJSON_HPP
 
-#include <bits/iterator_concepts.h>
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
 #include <map>
-#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -54,8 +52,8 @@ namespace cjson {
         using difference_type = std::ptrdiff_t;
         using size_type = std::size_t;
         using allocator_type = Alloc<basic_json>;
-        using iterator = iter<basic_json>;
-        using const_iterator = iter<const basic_json>;
+        using iterator = json_iter<basic_json>;
+        using const_iterator = json_iter<const basic_json>;
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -104,14 +102,14 @@ namespace cjson {
         }
 
         template <std::input_iterator InputIterator>
-        requires std::is_same_v<std::iter_value_t<InputIterator>, typename array::value_type>
+        requires std::is_convertible_v<std::iter_value_t<InputIterator>, typename array::value_type>
         basic_json(InputIterator first, InputIterator last)
             : m_value_t{value_t::_ARRAY} {
             m_json_value.m_array = construct_heap_object<Alloc<array>, array>(first, last);
         }
 
         template <std::input_iterator InputIterator>
-        requires std::is_same_v<std::iter_value_t<InputIterator>, typename object::value_type>
+        requires std::is_convertible_v<std::iter_value_t<InputIterator>, typename object::value_type>
         basic_json(InputIterator first, InputIterator last)
             : m_value_t{value_t::_OBJECT} {
             m_json_value.m_object = construct_heap_object<Alloc<object>, object>(first, last);
@@ -323,7 +321,68 @@ namespace cjson {
 
         template <typename... Args>
         auto emplace(const_iterator position, Args&& ...args) -> iterator {
-            return iterator{m_json_value.m_array->emplace(position.m_iter_value.m_array_iter, std::forward<Args>(args)...)};
+            return iterator{m_json_value.m_array->emplace(position.m_iter_value.m_array_iter,
+                std::forward<Args>(args)...)};
+        }
+
+        template <typename... Args>
+        requires (requires (object o, Args&& ...args) {
+            {o.emplace(std::forward<Args>(args)...)} -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto emplace(Args&& ...args) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] = m_json_value.m_object->emplace(std::forward<Args>(args)...);
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <typename... Args>
+        requires (requires (object o, object::const_iterator hint, Args&& ...args) {
+            {o.emplace_hint(hint, std::forward<Args>(args)...)} -> std::same_as<typename object::iterator>;
+        })
+        auto emplace_hint(const_iterator hint, Args&& ...args) -> iterator {
+            return iterator{m_json_value.m_object->emplace_hint(hint.m_iter_value.m_object_iter,
+                std::forward<Args>(args)...)};
+        }
+
+        template <typename... Args>
+        requires (requires (object o, const object::key_type& key, Args&& ...args) {
+            {o.try_emplace(key, std::forward<Args>(args)...)}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto try_emplace(const object::key_type& key, Args&& ...args) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] =
+                m_json_value.m_object->try_emplace(key, std::forward<Args>(args)...);
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <typename... Args>
+        requires (requires (object o, object::key_type&& key, Args&& ...args) {
+            {o.try_emplace(std::move(key), std::forward<Args>(args)...)}
+                -> std::same_as<std::pair<typename object::iterator, bool>>;
+        })
+        auto try_emplace(object::key_type&& key, Args&& ...args) -> std::pair<iterator, bool> {
+            const auto &[iter, insert_success] =
+                m_json_value.m_object->try_emplace(std::move(key), std::forward<Args>(args)...);
+            return std::make_pair(iterator{iter}, insert_success);
+        }
+
+        template <typename... Args>
+        requires (requires (object o, object::const_iterator hint, const object::key_type& key, Args&& ...args) {
+            {o.try_emplace(hint, key, std::forward<Args>(args)...)}
+                -> std::same_as<typename object::iterator>;
+        })
+        auto try_emplace(const_iterator hint, const object::key_type& key, Args&& ...args) -> iterator {
+            return iterator{m_json_value.m_object->try_emplace(hint.m_iter_value.m_object_iter,
+                key, std::forward<Args>(args)...)};
+        }
+
+        template <typename... Args>
+        requires (requires (object o, object::const_iterator hint, object::key_type&& key, Args&& ...args) {
+            {o.try_emplace(hint, std::move(key), std::forward<Args>(args)...)}
+                -> std::same_as<typename object::iterator>;
+        })
+        auto try_emplace(const_iterator hint, object::key_type&& key, Args&& ...args) -> iterator {
+            return iterator{m_json_value.m_object->try_emplace(hint.m_iter_value.m_object_iter,
+                std::move(key), std::forward<Args>(args)...)};
         }
 
         auto insert(const_iterator position, const typename array::value_type& value) -> iterator {
@@ -363,9 +422,11 @@ namespace cjson {
         auto erase(const_iterator first, const_iterator last) -> iterator {
             switch (first.m_iter_value_t) {
                 case iter_value_t::_OBJECT:
-                    return iterator{m_json_value.m_object->erase(first.m_iter_value.m_object_iter, last.m_iter_value.m_object_iter)};
+                    return iterator{m_json_value.m_object->erase(first.m_iter_value.m_object_iter,
+                        last.m_iter_value.m_object_iter)};
                 case iter_value_t::_ARRAY:
-                    return iterator{m_json_value.m_array->erase(first.m_iter_value.m_array_iter, last.m_iter_value.m_array_iter)};
+                    return iterator{m_json_value.m_array->erase(first.m_iter_value.m_array_iter,
+                        last.m_iter_value.m_array_iter)};
                 default:
                     clear();
                     return begin();
