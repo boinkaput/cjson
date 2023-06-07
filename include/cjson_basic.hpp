@@ -13,15 +13,6 @@
 #include "detail/cjson_iterator.hpp"
 
 namespace cjson {
-    enum class value_t: std::uint8_t {
-        _NULL,
-        _NUMBER,
-        _BOOLEAN,
-        _STRING,
-        _OBJECT,
-        _ARRAY
-    };
-
     template <typename Types, template<typename> class Alloc = std::allocator>
     class basic_json {
     public:
@@ -615,14 +606,6 @@ namespace cjson {
             return m_json_value.m_array->at(n);
         }
 
-        auto dump(const std::size_t& indent = 0) const noexcept -> std::string {
-            return do_dump(indent, 1) + "\n";
-        }
-
-        auto dump(std::ostream& os, const std::size_t& indent = 0) const noexcept -> void {
-            os << dump(indent);
-        }
-
         friend auto operator==(const basic_json& js1, const basic_json& js2) noexcept -> bool {
             if (js1.m_value_t != js2.m_value_t) {
                 return false;
@@ -722,6 +705,15 @@ namespace cjson {
             alloc_traits::destroy(alloc, value);
             alloc_traits::deallocate(alloc, value, 1);
         }
+
+        enum class value_t: std::uint8_t {
+            _NULL,
+            _NUMBER,
+            _BOOLEAN,
+            _STRING,
+            _OBJECT,
+            _ARRAY
+        };
 
         union json_value {
             null m_null;

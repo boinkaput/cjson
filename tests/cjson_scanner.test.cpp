@@ -5,7 +5,7 @@
 #include "../include/detail/input/cjson_scanner.hpp"
 
 template <typename Reader, typename... Args>
-auto make_scanner(Args &&...str) -> cjson::detail::input::json_scanner<Reader> {
+auto make_scanner(Args&& ...str) -> cjson::detail::input::json_scanner<Reader> {
     return cjson::detail::input::json_scanner<Reader>{
         std::make_unique<Reader>(std::forward<Args>(str)...)};
 }
