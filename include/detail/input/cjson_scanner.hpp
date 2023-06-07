@@ -6,9 +6,9 @@
 #include <string>
 #include <unordered_set>
 
-#include "cjson_utils.hpp"
+#include "../cjson_error.hpp"
 #include "cjson_reader.hpp"
-#include "cjson_error.hpp"
+#include "cjson_token.hpp"
 
 #define _NULL_TERMINATOR '\0'
 #define _NEWLINE '\n'
@@ -35,7 +35,7 @@
 #define _TRUE_TOK "true"
 #define _FALSE_TOK "false"
 
-namespace cjson::scanner {
+namespace cjson::detail::input {
     template <typename Reader>
     class json_scanner {
     public:
@@ -45,11 +45,11 @@ namespace cjson::scanner {
             const std::size_t char_number = 0,
             const std::size_t tab_width = _DEFAULT_TAB_WIDTH
         ) noexcept
-        : reader_{std::move(reader)}
-        , current_char_{reader_->advance()}
-        , line_number_{line_number}
-        , char_number_{char_number}
-        , tab_width_{tab_width} {}
+            : reader_{std::move(reader)}
+            , current_char_{reader_->advance()}
+            , line_number_{line_number}
+            , char_number_{char_number}
+            , tab_width_{tab_width} {}
 
         json_scanner(const json_scanner&) noexcept = delete;
         json_scanner(json_scanner&&) noexcept = default;
@@ -59,21 +59,21 @@ namespace cjson::scanner {
 
         ~json_scanner() noexcept = default;
 
-        auto get_token() -> utils::json_token {
+        auto get_token() -> json_token {
             auto spelling = std::string{};
-            auto pos = utils::position{};
-            auto tok = utils::token{};
+            auto pos = position{};
+            auto tok = token{};
             skip_spaces();
 
             pos.start(line_number_, char_number_);
             try {
                 tok = next_token(spelling, tok);
                 pos.end(line_number_, char_number_);
-                return utils::json_token(tok, std::move(spelling), std::move(pos));
-            } catch (error::json_error& error) {
+                return json_token(tok, std::move(spelling), std::move(pos));
+            } catch (json_input_error& error) {
                 pos.end(line_number_, char_number_);
                 error.pos_ = std::move(pos);
-                if (tok == utils::token::STRING) {
+                if (tok == token::STRING) {
                     while (current_char_ != _NULL_TERMINATOR and current_char_ != _QUOTE) {
                         accept();
                     }
@@ -107,43 +107,43 @@ namespace cjson::scanner {
             }
         }
 
-        auto next_token(std::string& spelling, utils::token& tok) -> utils::token {
+        auto next_token(std::string& spelling, token& tok) -> token {
             switch (current_char_) {
                 case _NULL_TERMINATOR:
                     break;
                 case _LEFT_BRACE_TOK:
-                    tok = utils::token::LEFT_BRACE;
+                    tok = token::LEFT_BRACE;
                     spelling.append(1, _LEFT_BRACE_TOK);
                     accept();
                     break;
                 case _RIGHT_BRACE_TOK:
-                    tok = utils::token::RIGHT_BRACE;
+                    tok = token::RIGHT_BRACE;
                     spelling.append(1, _RIGHT_BRACE_TOK);
                     accept();
                     break;
                 case _LEFT_BRACKET_TOK:
-                    tok = utils::token::LEFT_BRACKET;
+                    tok = token::LEFT_BRACKET;
                     spelling.append(1, _LEFT_BRACKET_TOK);
                     accept();
                     break;
                 case _RIGHT_BRACKET_TOK:
-                    tok = utils::token::RIGHT_BRACKET;
+                    tok = token::RIGHT_BRACKET;
                     spelling.append(1, _RIGHT_BRACKET_TOK);
                     accept();
                     break;
                 case _COMMA_TOK:
-                    tok = utils::token::COMMA;
+                    tok = token::COMMA;
                     spelling.append(1, _COMMA_TOK);
                     accept();
                     break;
                 case _COLON_TOK:
-                    tok = utils::token::COLON;
+                    tok = token::COLON;
                     spelling.append(1, _COLON_TOK);
                     accept();
                     break;
                 case _QUOTE:
                     accept();
-                    tok = utils::token::STRING;
+                    tok = token::STRING;
                     scan_string(spelling);
                     accept();
                     break;
@@ -151,21 +151,21 @@ namespace cjson::scanner {
                     if (std::isalpha(current_char_)) {
                         scan_keywords(spelling);
                         if (spelling == _TRUE_TOK) {
-                            tok = utils::token::TRUE;
+                            tok = token::TRUE;
                         } else if (spelling == _FALSE_TOK) {
-                            tok = utils::token::FALSE;
+                            tok = token::FALSE;
                         } else if (spelling == _NULL_TOK) {
-                            tok = utils::token::NULL_VALUE;
+                            tok = token::NULL_VALUE;
                         }
                     } else {
                         scan_number(spelling);
                         if (not spelling.empty()) {
-                            tok = utils::token::NUMBER;
+                            tok = token::NUMBER;
                         }
                     }
 
-                    if (tok == utils::token::END) {
-                        throw error::json_error(error::invalid_character_error(spelling.front()));
+                    if (tok == token::END) {
+                        throw json_input_error(invalid_character_error(spelling.front()));
                     }
                     break;
             };
@@ -175,7 +175,7 @@ namespace cjson::scanner {
         auto scan_string(std::string& spelling) -> void {
             while (current_char_ != _QUOTE) {
                 if (current_char_ == _NULL_TERMINATOR) {
-                    throw error::json_error(error::unterminated_string_error(spelling));
+                    throw json_input_error(unterminated_string_error(spelling));
                 } else if (current_char_ == _BACKSLASH) {
                     accept();
                     if (current_char_ == 'b') {
@@ -199,7 +199,7 @@ namespace cjson::scanner {
                             }
                         }
                         if (error) {
-                            throw error::json_error(error::invalid_unicode_escape_error(hex_str));
+                            throw json_input_error(invalid_unicode_escape_error(hex_str));
                         }
                         spelling.append(1, static_cast<char>(std::stoi(hex_str, nullptr, 16)));
                     } else if (current_char_ == '"') {
@@ -209,7 +209,7 @@ namespace cjson::scanner {
                     } else if (current_char_ == '\\') {
                         spelling.append(1, _BACKSLASH);
                     } else {
-                        throw error::json_error(error::illegal_escape_error(current_char_));
+                        throw json_input_error(illegal_escape_error(current_char_));
                     }
                 } else {
                     spelling.append(1, current_char_);
@@ -223,7 +223,7 @@ namespace cjson::scanner {
                 spelling.append(1, _MINUS);
                 accept();
                 if (not std::isdigit(current_char_)) {
-                    throw error::json_error(error::invalid_minus_error(current_char_));
+                    throw json_input_error(invalid_minus_error(current_char_));
                 }
             }
 
@@ -239,7 +239,7 @@ namespace cjson::scanner {
                     spelling.append(1, _DECIMAL_POINT);
                     accept();
                     if (not std::isdigit(current_char_)) {
-                        throw error::json_error(error::invalid_fraction_error(current_char_));
+                        throw json_input_error(invalid_fraction_error(current_char_));
                     }
                     scan_digits(spelling);
                 }
@@ -249,11 +249,12 @@ namespace cjson::scanner {
                     accept();
                     const char prev_char = current_char_;
                     accept();
-                    if (not (std::isdigit(prev_char) or ((prev_char == _PLUS or prev_char == _MINUS) and std::isdigit(current_char_)))) {
+                    if (not (std::isdigit(prev_char) or ((prev_char == _PLUS or prev_char == _MINUS)
+                        and std::isdigit(current_char_)))) {
                         if ((prev_char == _PLUS or prev_char == _MINUS)) {
-                            throw error::json_error(error::invalid_exponent_error(current_char_, true));
+                            throw json_input_error(invalid_exponent_error(current_char_, true));
                         } else {
-                            throw error::json_error(error::invalid_exponent_error(prev_char, false));
+                            throw json_input_error(invalid_exponent_error(prev_char, false));
                         }
                     }
                     spelling.append(1, prev_char);

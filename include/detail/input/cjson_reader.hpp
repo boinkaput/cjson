@@ -3,9 +3,9 @@
 
 #include <string_view>
 
-#define CHAR_END '\0'
+#define _CHAR_END '\0'
 
-namespace cjson::reader {
+namespace cjson::detail::input {
     class json_reader {
     public:
         json_reader() noexcept = default;
@@ -24,13 +24,13 @@ namespace cjson::reader {
     public:
         string_reader() noexcept = default;
         string_reader(std::string_view&& str) noexcept
-        : str_{str}, cur_{str.begin()} {}
+            : str_{str}, cur_{str.begin()} {}
 
         ~string_reader() noexcept override = default;
 
         auto advance() noexcept -> char override {
             if (cur_ == str_.end()) {
-                return CHAR_END;
+                return _CHAR_END;
             } else {
                 return *(cur_++);
             }
